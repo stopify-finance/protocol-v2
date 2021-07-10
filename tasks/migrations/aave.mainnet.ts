@@ -1,15 +1,14 @@
-import {task} from 'hardhat/config';
-import {ExternalProvider} from '@ethersproject/providers';
-import {checkVerification} from '../../helpers/etherscan-verification';
-import {ConfigNames} from '../../helpers/configuration';
-import {EthereumNetworkNames} from '../../helpers/types';
-import {printContracts} from '../../helpers/misc-utils';
+import { task } from 'hardhat/config';
+import { checkVerification } from '../../helpers/etherscan-verification';
+import { ConfigNames } from '../../helpers/configuration';
+import { printContracts } from '../../helpers/misc-utils';
+import { usingTenderly } from '../../helpers/tenderly-utils';
 
 task('aave:mainnet', 'Deploy development enviroment')
   .addFlag('verify', 'Verify contracts at Etherscan')
-  .setAction(async ({verify}, DRE) => {
+  .addFlag('skipRegistry', 'Skip addresses provider registration at Addresses Provider Registry')
+  .setAction(async ({ verify, skipRegistry }, DRE) => {
     const POOL_NAME = ConfigNames.Aave;
-    const network = <EthereumNetworkNames>DRE.network.name;
     await DRE.run('set-DRE');
 
     // Prevent loss of gas verifying all the needed ENVs for Etherscan verification
@@ -17,42 +16,41 @@ task('aave:mainnet', 'Deploy development enviroment')
       checkVerification();
     }
 
-    if (network.includes('tenderly')) {
-      console.log('- Setting up Tenderly provider');
-      await DRE.tenderlyRPC.initializeFork();
-      const provider = new DRE.ethers.providers.Web3Provider(DRE.tenderlyRPC as any);
-      DRE.ethers.provider = provider;
-    }
-
     console.log('Migration started\n');
 
     console.log('1. Deploy address provider');
-    await DRE.run('full:deploy-address-provider', {pool: POOL_NAME});
+    await DRE.run('full:deploy-address-provider', { pool: POOL_NAME, skipRegistry });
 
     console.log('2. Deploy lending pool');
-    await DRE.run('full:deploy-lending-pool');
+    await DRE.run('full:deploy-lending-pool', { pool: POOL_NAME });
 
     console.log('3. Deploy oracles');
-    await DRE.run('full:deploy-oracles', {pool: POOL_NAME});
+    await DRE.run('full:deploy-oracles', { pool: POOL_NAME });
 
     console.log('4. Deploy Data Provider');
-    await DRE.run('full:data-provider', {pool: POOL_NAME});
+    await DRE.run('full:data-provider', { pool: POOL_NAME });
 
-    console.log('5. Initialize lending pool');
-    await DRE.run('full:initialize-lending-pool', {pool: POOL_NAME});
+    console.log('5. Deploy WETH Gateway');
+    await DRE.run('full-deploy-weth-gateway', { pool: POOL_NAME });
+
+    console.log('6. Initialize lending pool');
+    await DRE.run('full:initialize-lending-pool', { pool: POOL_NAME });
 
     if (verify) {
       printContracts();
-      console.log('4. Veryfing contracts');
-      await DRE.run('verify:general', {all: true, pool: POOL_NAME});
+      console.log('7. Veryfing contracts');
+      await DRE.run('verify:general', { all: true, pool: POOL_NAME });
 
-      console.log('5. Veryfing aTokens and debtTokens');
-      await DRE.run('verify:tokens', {pool: POOL_NAME});
+      console.log('8. Veryfing aTokens and debtTokens');
+      await DRE.run('verify:tokens', { pool: POOL_NAME });
     }
 
-    if (network.includes('tenderly')) {
-      const postDeployHead = DRE.tenderlyRPC.getHead();
-      console.log('Tenderly UUID', postDeployHead);
+    if (usingTenderly()) {
+      const postDeployHead = DRE.tenderlyNetwork.getHead();
+      const postDeployFork = DRE.tenderlyNetwork.getFork();
+      console.log('Tenderly Info');
+      console.log('- Head', postDeployHead);
+      console.log('- Fork', postDeployFork);
     }
     console.log('\nFinished migrations');
     printContracts();

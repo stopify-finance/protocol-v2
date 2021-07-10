@@ -1,6 +1,5 @@
-import {task} from 'hardhat/config';
-import {verifyContract, checkVerification} from '../../helpers/etherscan-verification';
-
+import { task } from 'hardhat/config';
+import { verifyEtherscanContract, checkVerification } from '../../helpers/etherscan-verification';
 interface VerifyParams {
   contractName: string;
   address: string;
@@ -19,11 +18,11 @@ task('verify-sc', 'Inits the DRE, to have access to all the plugins')
     'arguments for contract constructor',
     []
   )
-  .setAction(async ({address, constructorArguments = [], libraries}: VerifyParams, localBRE) => {
+  .setAction(async ({ address, constructorArguments = [], libraries }: VerifyParams, localBRE) => {
     await localBRE.run('set-DRE');
 
     checkVerification();
 
-    const result = await verifyContract(address, constructorArguments, libraries);
+    const result = await verifyEtherscanContract(address, constructorArguments, libraries);
     return result;
   });

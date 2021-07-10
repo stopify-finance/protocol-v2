@@ -7,17 +7,17 @@ import {
 } from '../../helpers/contracts-getters';
 import { getParamPerNetwork } from '../../helpers/contracts-helpers';
 import { DRE } from '../../helpers/misc-utils';
-import { eEthereumNetwork } from '../../helpers/types';
+import { eEthereumNetwork, eNetwork, ePolygonNetwork, eXDaiNetwork } from '../../helpers/types';
 
 task('print-config', 'Inits the DRE, to have access to all the plugins')
   .addParam('dataProvider', 'Address of AaveProtocolDataProvider')
   .addParam('pool', `Pool name to retrieve configuration, supported: ${Object.values(ConfigNames)}`)
   .setAction(async ({ pool, dataProvider }, localBRE) => {
     await localBRE.run('set-DRE');
-    const network =
-      process.env.MAINNET_FORK === 'true'
-        ? eEthereumNetwork.main
-        : (localBRE.network.name as eEthereumNetwork);
+    const network = process.env.FORK
+      ? (process.env.FORK as eNetwork)
+      : (localBRE.network.name as eNetwork);
+    console.log(network);
     const poolConfig = loadPoolConfig(pool);
 
     const providerRegistryAddress = getParamPerNetwork(poolConfig.ProviderRegistry, network);
@@ -60,7 +60,7 @@ task('print-config', 'Inits the DRE, to have access to all the plugins')
     ];
     const tokensFields = ['aToken', 'stableDebtToken', 'variableDebtToken'];
     for (const [symbol, address] of Object.entries(
-      getParamPerNetwork(poolConfig.ReserveAssets, network)
+      getParamPerNetwork(poolConfig.ReserveAssets, network as eNetwork)
     )) {
       console.log(`- ${symbol} asset config`);
       console.log(`  - reserve address: ${address}`);
